@@ -1,41 +1,62 @@
 import os
 import sys
-import numpy as np
+
+import numpy as np 
 import pandas as pd
 import dill
-
+import pickle
 from sklearn.metrics import r2_score
+from sklearn.model_selection import GridSearchCV
 
 from src.exception import CustomException
 
-
-def save_object(file_path,obj):
+def save_object(file_path, obj):
     try:
-        dir_path=os.path.dirname(file_path)
-        os.makedirs(dir_path,exist_ok=True)
+        dir_path = os.path.dirname(file_path)
 
-        with open(file_path,'wb') as file_obj:
-            dill.dump(obj,file_obj)#dill is used to save the object in binary format
+        os.makedirs(dir_path, exist_ok=True)
+
+        with open(file_path, "wb") as file_obj:
+            pickle.dump(obj, file_obj)
 
     except Exception as e:
-        raise CustomException(e,sys)
+        raise CustomException(e, sys)
     
-def evaluate_models(X_train,y_train,X_test,y_test,models):
+def evaluate_models(X_train, y_train,X_test,y_test,models,param):
     try:
-        report={}
-        for i in range(len(models)):
-            model=list(models.values())[i]#to get the model object from the dict
-            model.fit(X_train,y_train)#to train the model
-            
-            y_train_pred=model.predict(X_train)#to get the predicted values for the training data
-            y_test_pred=model.predict(X_test)#to get the predicted values for the test data
-            
-            train_model_score=r2_score(y_train,y_train_pred)#to get the r2 score for the training data
-            test_model_score=r2_score(y_test,y_test_pred)#to get the r2 score for the test data
+        report = {}
 
-            report[list(models.keys())[i]]=test_model_score#to get the model name from the dict and to get the test score for the model and to save it in the report dict
+        for i in range(len(list(models))):
+            model = list(models.values())[i]
+            para=param[list(models.keys())[i]]
+
+            gs = GridSearchCV(model,para,cv=3)
+            gs.fit(X_train,y_train)
+
+            model.set_params(**gs.best_params_)
+            model.fit(X_train,y_train)
+
+            #model.fit(X_train, y_train)  # Train model
+
+            y_train_pred = model.predict(X_train)
+
+            y_test_pred = model.predict(X_test)
+
+            train_model_score = r2_score(y_train, y_train_pred)
+
+            test_model_score = r2_score(y_test, y_test_pred)
+
+            report[list(models.keys())[i]] = test_model_score
 
         return report
 
     except Exception as e:
-        raise CustomException(e,sys)
+        raise CustomException(e, sys)
+    
+def load_object(file_path):
+    try:
+        with open(file_path, "rb") as file_obj:
+            return pickle.load(file_obj)
+
+    except Exception as e:
+        raise CustomException(e, sys)
